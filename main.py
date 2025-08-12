@@ -9,7 +9,8 @@ import json
 import csv
 from bs4 import BeautifulSoup
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+import os
 
 # ================== CONFIGURATION ==================
 # Modifiez ces variables selon vos besoins
@@ -106,12 +107,41 @@ class UMBScraper:
                 tournament_info['id'] = tournament_id
                 tournament_info['url'] = url
                 tournament_info['scraped_at'] = datetime.now().isoformat()
+                
+                # Ajouter la date de début des inscriptions pour World Cup 3-Cushion
+                registration_start = self.calculate_registration_start(
+                    tournament_info.get('tournament', ''),
+                    tournament_info.get('starts_on', '')
+                )
+                if registration_start:
+                    tournament_info['registration_start'] = registration_start
+                
                 return tournament_info
 
         except Exception as e:
             print(f"Erreur lors de la récupération de l'ID {tournament_id}: {e}")
 
         return None
+
+    def calculate_registration_start(self, tournament_name: str, starts_on: str) -> str:
+        """Calcule la date de début des inscriptions pour les tournois World Cup 3-Cushion"""
+        if tournament_name != "World Cup 3-Cushion":
+            return None
+        
+        start_date = self.parse_date(starts_on)
+        if not start_date:
+            return None
+        
+        # 8 semaines avant = 56 jours
+        registration_start = start_date - timedelta(days=56)
+        
+        # Format: "DD-Month-YYYY à 12:00 GMT Paris"
+        months = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ]
+        
+        return f"{registration_start.day:02d}-{months[registration_start.month-1]}-{registration_start.year} à 12:00 GMT Paris"
 
     def scrape_tournaments(self, start_id: int, end_id: int) -> list:
         """Scrape tous les tournois dans la plage donnée"""
@@ -196,7 +226,7 @@ class UMBScraper:
             fieldnames = [
                 'id', 'tournament', 'starts_on', 'ends_on',
                 'organized_by', 'place', 'material', 'delegate_umb',
-                'url', 'scraped_at'
+                'registration_start', 'url', 'scraped_at'
             ]
 
             with open(filename, 'w', newline='', encoding='utf-8') as f:
@@ -241,6 +271,153 @@ class UMBScraper:
 
         return future_tournaments
 
+    def load_existing_data(self, filename: str) -> dict:
+        """Charge les données existantes depuis le fichier JSON"""
+        try:
+            if os.path.exists(filename):
+                with open(filename, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+        except Exception as e:
+            print(f"⚠️  Erreur lors du chargement de {filename}: {e}")
+        
+        return {'metadata': {}, 'tournaments': []}
+
+    def parse_date(self, date_str: str) -> datetime:
+        """Parse une date string en datetime"""
+        if not date_str:
+            return None
+        
+        date_formats = [
+            "%d-%B-%Y",  # 03-December-2023
+            "%d/%m/%Y",  # 03/12/2023
+            "%Y-%m-%d",  # 2023-12-03
+            "%d.%m.%Y"  # 03.12.2023
+        ]
+        
+        for date_format in date_formats:
+            try:
+                return datetime.strptime(date_str, date_format)
+            except ValueError:
+                continue
+        
+        return None
+
+    def identify_ids_to_rescrape(self, existing_data: dict, max_id: int = 400) -> list:
+        """Identifie les IDs qui ont besoin d'être re-scrappés"""
+        existing_tournaments = existing_data.get('tournaments', [])
+        existing_ids = {t['id'] for t in existing_tournaments}
+        current_date = datetime.now()
+        
+        ids_to_rescrape = set()
+        
+        # 1. IDs manquants dans la plage
+        all_ids = set(range(1, max_id + 1))
+        missing_ids = all_ids - existing_ids
+        ids_to_rescrape.update(missing_ids)
+        print(f"📋 IDs manquants: {len(missing_ids)}")
+        
+        # 2. Tournois "Reserved for UMB"
+        reserved_ids = []
+        for tournament in existing_tournaments:
+            if tournament.get('tournament') == 'Reserved for UMB':
+                reserved_ids.append(tournament['id'])
+                ids_to_rescrape.add(tournament['id'])
+        print(f"🔒 Tournois 'Reserved for UMB': {len(reserved_ids)}")
+        
+        # 3. Tournois futurs (starts_on > aujourd'hui)
+        future_ids = []
+        for tournament in existing_tournaments:
+            start_date = self.parse_date(tournament.get('starts_on', ''))
+            if start_date and start_date > current_date:
+                future_ids.append(tournament['id'])
+                ids_to_rescrape.add(tournament['id'])
+        print(f"🔮 Tournois futurs: {len(future_ids)}")
+        
+        return sorted(list(ids_to_rescrape))
+
+    def update_existing_data(self, existing_data: dict, new_tournaments: list) -> dict:
+        """Met à jour les données existantes avec les nouvelles données"""
+        existing_tournaments = existing_data.get('tournaments', [])
+        existing_by_id = {t['id']: t for t in existing_tournaments}
+        
+        # Mettre à jour ou ajouter les nouveaux tournois
+        for tournament in new_tournaments:
+            existing_by_id[tournament['id']] = tournament
+        
+        # Reconstruire la liste
+        updated_tournaments = list(existing_by_id.values())
+        updated_tournaments.sort(key=lambda x: x['id'])
+        
+        # Mettre à jour les métadonnées
+        updated_data = {
+            'metadata': {
+                'scraped_at': datetime.now().isoformat(),
+                'total_tournaments': len(updated_tournaments),
+                'stats': self.stats,
+                'last_update_type': 'selective_rescrape'
+            },
+            'tournaments': updated_tournaments
+        }
+        
+        return updated_data
+
+    def selective_scrape(self, json_filename: str = "umb_tournaments.json", max_id: int = 400):
+        """Effectue un scraping sélectif basé sur les données existantes"""
+        print("🔄 SCRAPING SÉLECTIF OPTIMISÉ")
+        print("=" * 60)
+        
+        # Charger les données existantes
+        existing_data = self.load_existing_data(json_filename)
+        existing_count = len(existing_data.get('tournaments', []))
+        print(f"📊 Tournois existants: {existing_count}")
+        
+        # Identifier les IDs à re-scrapper
+        ids_to_rescrape = self.identify_ids_to_rescrape(existing_data, max_id)
+        
+        if not ids_to_rescrape:
+            print("✅ Aucun ID à re-scrapper, les données sont à jour!")
+            return existing_data.get('tournaments', [])
+        
+        print(f"🎯 Total IDs à re-scrapper: {len(ids_to_rescrape)}")
+        print(f"📝 IDs: {ids_to_rescrape[:10]}{'...' if len(ids_to_rescrape) > 10 else ''}")
+        print("-" * 60)
+        
+        # Effectuer le scraping sélectif
+        new_tournaments = []
+        for i, tournament_id in enumerate(ids_to_rescrape):
+            progress = (i + 1) / len(ids_to_rescrape) * 100
+            print(f"[{progress:5.1f}%] Re-scraping ID {tournament_id:3d}...", end=' ')
+            
+            tournament_info = self.get_tournament_details(tournament_id)
+            
+            if tournament_info:
+                new_tournaments.append(tournament_info)
+                self.stats['successful'] += 1
+                print(f"✅ {tournament_info['tournament'][:50]}...")
+            else:
+                self.stats['no_tournament'] += 1
+                print("⚪ Pas de tournoi")
+            
+            self.stats['total_tested'] += 1
+            
+            # Délai entre les requêtes
+            if i < len(ids_to_rescrape) - 1:
+                time.sleep(DELAY_BETWEEN_REQUESTS)
+        
+        print(f"\n📈 Nouveaux/Mis à jour: {len(new_tournaments)}")
+        
+        # Mettre à jour les données existantes
+        updated_data = self.update_existing_data(existing_data, new_tournaments)
+        updated_tournaments = updated_data.get('tournaments', [])
+        
+        # Sauvegarder immédiatement les données mises à jour
+        self.save_to_json(updated_tournaments, json_filename)
+        
+        # Marquer que le mode sélectif a été utilisé
+        self._selective_mode_used = True
+        
+        return updated_tournaments
+
     def display_results(self, tournaments: list):
         """Affiche les résultats trouvés"""
         if not tournaments:
@@ -254,6 +431,11 @@ class UMBScraper:
             print(f"ID {tournament['id']:3d}: {tournament['tournament']}")
             print(f"      📅 {tournament['starts_on']} - {tournament['ends_on']}")
             print(f"      📍 {tournament['place']}")
+            
+            # Afficher la date de début des inscriptions si disponible
+            if tournament.get('registration_start'):
+                print(f"      📝 Inscriptions: {tournament['registration_start']}")
+            
             print(f"      🔗 {tournament['url']}")
             print()
 
@@ -266,6 +448,11 @@ class UMBScraper:
                 print(f"ID {tournament['id']:3d}: {tournament['tournament']}")
                 print(f"      📅 {tournament['starts_on']}")
                 print(f"      📍 {tournament['place']}")
+                
+                # Afficher la date de début des inscriptions si disponible
+                if tournament.get('registration_start'):
+                    print(f"      📝 Inscriptions: {tournament['registration_start']}")
+                
                 print()
 
 
@@ -273,22 +460,43 @@ def main():
     """Fonction principale"""
     print("🎱 UMB TOURNAMENT SCRAPER")
     print("=" * 60)
-    print(f"Configuration:")
-    print(f"  - Plage d'IDs: {START_ID} à {END_ID}")
-    print(f"  - Délai: {DELAY_BETWEEN_REQUESTS}s")
-    print(f"  - Timeout: {TIMEOUT}s")
-    print(f"  - Fichiers de sortie: {OUTPUT_PREFIX}.json/csv")
-    print("=" * 60)
-
+    
     # Créer le scraper
     scraper = UMBScraper()
-
-    # Lancer le scraping
-    tournaments = scraper.scrape_tournaments(START_ID, END_ID)
+    
+    # Vérifier si le fichier JSON existe pour le scraping sélectif
+    json_file = f"{OUTPUT_PREFIX}.json"
+    
+    if os.path.exists(json_file):
+        print("📁 Fichier JSON existant détecté")
+        print("🔄 Mode: SCRAPING SÉLECTIF (optimisé)")
+        print(f"  - Fichier de base: {json_file}")
+        print(f"  - Plage d'IDs: 1 à {END_ID}")
+        print(f"  - Délai: {DELAY_BETWEEN_REQUESTS}s")
+        print(f"  - Timeout: {TIMEOUT}s")
+        print("=" * 60)
+        
+        # Lancer le scraping sélectif
+        tournaments = scraper.selective_scrape(json_file, END_ID)
+        scraper.print_stats()
+        
+    else:
+        print("📝 Aucun fichier JSON existant")
+        print("🔄 Mode: SCRAPING COMPLET")
+        print(f"  - Plage d'IDs: {START_ID} à {END_ID}")
+        print(f"  - Délai: {DELAY_BETWEEN_REQUESTS}s")
+        print(f"  - Timeout: {TIMEOUT}s")
+        print(f"  - Fichiers de sortie: {OUTPUT_PREFIX}.json/csv")
+        print("=" * 60)
+        
+        # Lancer le scraping complet
+        tournaments = scraper.scrape_tournaments(START_ID, END_ID)
 
     # Sauvegarder les résultats
     if tournaments:
-        scraper.save_to_json(tournaments, f"{OUTPUT_PREFIX}.json")
+        # En mode sélectif, le JSON est déjà sauvegardé dans selective_scrape()
+        if not os.path.exists(json_file) or not hasattr(scraper, '_selective_mode_used'):
+            scraper.save_to_json(tournaments, f"{OUTPUT_PREFIX}.json")
         scraper.save_to_csv(tournaments, f"{OUTPUT_PREFIX}.csv")
 
         # Sauvegarder séparément les tournois futurs
