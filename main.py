@@ -26,7 +26,20 @@ def show_world_cups():
         print("💡 Lancez d'abord le scraping avec: python main.py scrape")
         return
     
-    for tournament in world_cups:
+    # Trier les World Cups par date starts_on
+    from datetime import datetime
+    
+    def parse_date_for_sorting(date_str):
+        """Parse une date pour le tri"""
+        try:
+            return datetime.strptime(date_str, "%d-%B-%Y")
+        except ValueError:
+            # En cas d'échec, retourner une date très future pour mettre à la fin
+            return datetime(2099, 12, 31)
+    
+    world_cups_sorted = sorted(world_cups, key=lambda x: parse_date_for_sorting(x.get('starts_on', '')))
+    
+    for tournament in world_cups_sorted:
         print(f"ID {tournament['id']:3d}: {tournament['tournament']}")
         print(f"      📅 {tournament['starts_on']}")
         print(f"      📍 {tournament['place']}")
@@ -37,7 +50,7 @@ def show_world_cups():
         print(f"      🔗 {tournament['url']}")
         print()
     
-    print(f"📊 Total: {len(world_cups)} World Cups futures")
+    print(f"📊 Total: {len(world_cups_sorted)} World Cups futures")
 
 def setup_bot_config(tournament_id: int):
     """Configure un bot pour un tournoi spécifique"""
@@ -130,8 +143,27 @@ Exemples d'usage:
         try:
             player_data = config_manager.load_player_data()
             print("✅ Configuration joueur: OK")
-            print(f"   Joueur: {player_data.get('firstName', '')} {player_data.get('lastName', '')}")
-            print(f"   Email: {player_data.get('email', '')}")
+            print()
+            print("📋 DONNÉES JOUEUR CONFIGURÉES")
+            print("-" * 40)
+            
+            # Champs indispensables avec leurs valeurs
+            essential_fields = [
+                ('federation', 'Fédération'),
+                ('lastName', 'Nom'),
+                ('firstName', 'Prénom'),  
+                ('playerId', 'ID Joueur'),
+                ('nationality', 'Nationalité'),
+                ('dateOfBirth', 'Date naissance'),
+                ('country', 'Pays'),
+                ('email', 'Email')
+            ]
+            
+            for field_key, field_label in essential_fields:
+                value = player_data.get(field_key, '')
+                status = "✅" if value else "❌"
+                print(f"   {status} {field_label:15}: {value}")
+                
         except (FileNotFoundError, ValueError) as e:
             print(f"❌ Configuration joueur: {e}")
             print("💡 Éditez config/player.json avec vos données")
