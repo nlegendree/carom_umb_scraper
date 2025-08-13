@@ -7,18 +7,45 @@ wheels/
 *.egg-info
 
 # Virtual environments
-.venv
+.venv/
 
-# JSON files (ignore all except specific ones)
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Project specific
+requirements.txt  # We use pyproject.toml + uv.lock
+.python-version   # Local Python version
+
+# JSON files (ignore all except specific templates/configs)
 *.json
 !config/players/template.json
 !config/bot_config.json
 
-# Keep tournaments directory structure
+# Keep tournaments directory structure but ignore content
 !config/tournaments/
+config/tournaments/*.json
 
-# CSV files
+# CSV and data files (auto-generated)
 *.csv
+data/*
+!data/.gitkeep
 
 # Logs directory - keep directory but ignore all files inside
 logs/*
