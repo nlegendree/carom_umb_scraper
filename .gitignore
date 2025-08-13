@@ -23,3 +23,6 @@ wheels/
 # Logs directory - keep directory but ignore all files inside
 logs/*
 !logs/.gitkeep
+
+# Personal documentation
+CLAUDE.md

@@ -1,0 +1,6 @@
+# UMB Carom Scraper - Dependencies
+# Generated from pyproject.toml for pip compatibility
+
+beautifulsoup4>=4.13.4
+requests>=2.32.4
+selenium>=4.20.0
