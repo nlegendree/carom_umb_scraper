@@ -21,9 +21,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from bots.base_bot import BaseBotConfig
 
 class CurlBot:
-    def __init__(self, config_file: str = None):
+    def __init__(self, config_file: str = None, player_file: str = None):
         # Configuration centralisée
-        self.config = BaseBotConfig(config_file)
+        self.config = BaseBotConfig(config_file, player_file)
         
         # Validation de la configuration
         errors = self.config.validate_config()
@@ -313,10 +313,16 @@ def main():
     """Point d'entrée principal"""
     parser = argparse.ArgumentParser(description="Bot cURL UMB")
     parser.add_argument('--config', help='Fichier de configuration du tournoi')
+    parser.add_argument('--player', help='Fichier de configuration du joueur')
+    parser.add_argument('--delay', type=int, help='Délai en millisecondes avant démarrage')
     args = parser.parse_args()
     
     try:
-        bot = CurlBot(args.config)
+        # Appliquer le délai si spécifié
+        if args.delay:
+            time.sleep(args.delay / 1000.0)
+        
+        bot = CurlBot(args.config, args.player)
         bot.run()
     except Exception as e:
         print(f"❌ Erreur: {e}")

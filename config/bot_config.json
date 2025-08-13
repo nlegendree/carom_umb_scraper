@@ -1,0 +1,22 @@
+{
+  "scraper": {
+    "start_id": 1,
+    "end_id": 400,
+    "delay_between_requests": 1.0,
+    "timeout": 10,
+    "output_prefix": "umb_tournaments"
+  },
+  "bot": {
+    "check_interval_critical": 0.05,
+    "check_interval_normal": 0.5,
+    "critical_window": 10,
+    "max_retries": 3,
+    "registration_time": "12:00:00",
+    "check_start_offset_seconds": 5
+  },
+  "paths": {
+    "data_dir": "data",
+    "logs_dir": "logs",
+    "config_dir": "config"
+  }
+}

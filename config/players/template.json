@@ -1,0 +1,24 @@
+{
+  "player_data": {
+    "federation": "",
+    "lastName": "",
+    "firstName": "",
+    "playerId": "",
+    "nationality": "",
+    "dateOfBirth": "",
+    "country": "",
+    "city": "",
+    "address": "",
+    "phone": "",
+    "email": "",
+    "contactFax": ""
+  },
+  "comments": {
+    "federation": "Fédération Française de Billard = 109",
+    "nationality": "France = 216",
+    "country": "France = 216",
+    "dateOfBirth": "Format: DD/MM/YYYY",
+    "playerId": "Votre numéro de joueur (0000 si pas d'id)",
+    "email": "Email valide requis pour inscription"
+  }
+}

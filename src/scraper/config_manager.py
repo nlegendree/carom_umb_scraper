@@ -68,7 +68,7 @@ class ConfigManager:
     
     def get_log_path(self, filename: str) -> Path:
         """Retourne le chemin complet vers un fichier de log"""
-        return self.logs_dir / filename
+        return self.logs_dir / f"{filename}.log"
     
     def get_tournaments_data(self) -> Dict[str, Any]:
         """Charge les données des tournois depuis umb_tournaments.json"""
@@ -106,6 +106,10 @@ class ConfigManager:
     
     def save_tournament_config(self, tournament_id: int, registration_date: str) -> str:
         """Sauvegarde une configuration de tournoi pour le bot"""
+        # Créer le dossier tournaments s'il n'existe pas
+        tournaments_dir = self.config_dir / "tournaments"
+        tournaments_dir.mkdir(exist_ok=True)
+        
         config_data = {
             "tournament_id": tournament_id,
             "registration_date": registration_date,
@@ -113,7 +117,7 @@ class ConfigManager:
             "check_start_offset": 5
         }
         
-        config_file = self.config_dir / f"tournament_{tournament_id}.json"
+        config_file = tournaments_dir / f"tournament_{tournament_id}.json"
         with open(config_file, 'w', encoding='utf-8') as f:
             json.dump(config_data, f, indent=2, ensure_ascii=False)
         

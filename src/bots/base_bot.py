@@ -8,28 +8,57 @@ import json
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta
+from typing import Dict, Any
 
 # Ajouter le dossier parent au PYTHONPATH pour l'import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from carom_scraper.config_manager import config_manager
+from scraper.config_manager import config_manager
 
 class BaseBotConfig:
     """Gestionnaire de configuration pour les bots"""
     
-    def __init__(self, tournament_config_file: str = None):
+    def __init__(self, tournament_config_file: str = None, player_config_file: str = None):
         self.config_manager = config_manager
         
         # Charger config bot générale
         self.bot_config = self.config_manager.load_bot_config()
         
-        # Charger données joueur
-        self.player_data = self.config_manager.load_player_data()
+        # Charger données joueur (depuis fichier spécifique ou défaut)
+        if player_config_file:
+            self.player_data = self.load_player_from_file(player_config_file)
+        else:
+            self.player_data = self.config_manager.load_player_data()
         
         # Charger config tournoi spécifique si fournie
         self.tournament_config = None
         if tournament_config_file:
             self.load_tournament_config(tournament_config_file)
+    
+    def load_player_from_file(self, player_file: str) -> Dict[str, Any]:
+        """Charge les données joueur depuis un fichier spécifique"""
+        player_path = Path(player_file)
+        if not player_path.is_absolute():
+            player_path = self.config_manager.project_root / player_file
+        
+        if not player_path.exists():
+            raise FileNotFoundError(f"Fichier joueur non trouvé: {player_path}")
+        
+        with open(player_path, 'r', encoding='utf-8') as f:
+            config = json.load(f)
+        
+        player_data = config.get('player_data', {})
+        
+        # Vérifier que les champs obligatoires sont remplis
+        required_fields = ['lastName', 'firstName', 'email']
+        missing_fields = [field for field in required_fields if not player_data.get(field)]
+        
+        if missing_fields:
+            raise ValueError(
+                f"Champs obligatoires manquants dans {player_path}: {missing_fields}"
+            )
+        
+        return player_data
     
     def load_tournament_config(self, config_file: str):
         """Charge la configuration d'un tournoi spécifique"""

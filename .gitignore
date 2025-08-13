@@ -9,5 +9,17 @@ wheels/
 # Virtual environments
 .venv
 
+# JSON files (ignore all except specific ones)
 *.json
+!config/players/template.json
+!config/bot_config.json
+
+# Keep tournaments directory structure
+!config/tournaments/
+
+# CSV files
 *.csv
+
+# Logs directory - keep directory but ignore all files inside
+logs/*
+!logs/.gitkeep

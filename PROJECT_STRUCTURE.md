@@ -23,7 +23,7 @@ carom_umb_scraper/
 │   └── (logs générés automatiquement)
 ├── 
 └── src/                       # 💻 Code source
-    ├── carom_scraper/         # Module principal de scraping
+    ├── scraper/               # Module principal de scraping
     │   ├── __init__.py
     │   ├── scraper.py         # Scraper principal
     │   └── config_manager.py  # Gestionnaire de configuration
