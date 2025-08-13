@@ -29,18 +29,15 @@ wheels/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-requirements.txt  # We use pyproject.toml + uv.lock
-.python-version   # Local Python version
-
 # JSON files (ignore all except specific templates/configs)
 *.json
 !config/players/template.json
 !config/bot_config.json
 
 # Keep tournaments directory structure but ignore content
-!config/tournaments/
 config/tournaments/*.json
+!config/tournaments/.gitkeep
+
 
 # CSV and data files (auto-generated)
 *.csv
